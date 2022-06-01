@@ -1,0 +1,49 @@
+version: "3"
+
+volumes:
+  redis_data:
+  postgres_data:
+
+services:
+  redis:
+    image: redis:7.0.0-alpine
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379"
+    command: redis-server --save 60 1 --loglevel warning
+    restart: unless-stopped
+    container_name: wp-redis
+
+  postgres:
+    image: postgis/postgis:14-master
+    depends_on:
+      - redis
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      POSTGRES_DB: wp
+      POSTGRES_USERNAME: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5433:5432"
+    restart: unless-stopped
+    container_name: wp-postgres
+
+  django:
+    build: .
+    depends_on:
+      - postgres
+    volumes:
+      - .:/app
+      - ./static:/app/static
+    ports:
+      - "8002:8000"
+    environment:
+      DEBUG: 1
+      BASE_URL: http://localhost:8000
+      DATABASE_URL: postgres://postgres:password@postgres/wp
+      DJANGO_SECRET_KEY: django-insecure-151l1k*few1q-dy7lgv4vig&iqn__8(5za3e7xsk+-z-8*xxqt
+      DJANGO_SETTINGS_MODULE: wp.settings.develop
+    restart: unless-stopped
+    container_name: wp-django
